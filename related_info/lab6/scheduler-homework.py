@@ -115,10 +115,15 @@ if options.solve == True:
             ranfor = 0
             if runtime > quantum:
 				#YOUR CODE
+                ranfor = quantum;
+                #thetime = thetime+ quantum;
+                runtime = runtime - quantum;
                 print '  [ time %3d ] Run job %3d for %.2f secs' % (thetime, jobnum, ranfor)
                 runlist.append([jobnum, runtime])
             else:
                 #YOUR CODE
+                #thetime = thetime + runtime;
+                ranfor = runtime;			
                 print '  [ time %3d ] Run job %3d for %.2f secs ( DONE at %.2f )' % (thetime, jobnum, ranfor, thetime + ranfor)
                 turnaround[jobnum] = thetime + ranfor
                 jobcount -= 1
