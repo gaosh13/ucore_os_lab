@@ -1,8 +1,10 @@
 为什么使用32位整数就可以完成stride算法的调度？
 
-以ucore为例，要求kern/schedule/default_sched.c中常量BIGSTRIDE<2^16，在实现stride时初始lab6_stride为0。
-由于每次都会寻找最小的lab6_stride对应进程，然后为其lab6_stride加上BIGSTRIDE/lab6_priority，所以lab6_stride的最大最小值差始终小于等于BIGSTRIDE，小于2^16。
+以ucore为例，要求kern/schedule/default_sched.c中常量BIGSTRIDE<2^31，在实现stride时初始lab6_stride为0。
+由于每次都会寻找最小的lab6_stride对应进程，然后为其lab6_stride加上BIGSTRIDE/lab6_priority，所以lab6_stride的最大最小值差始终小于等于BIGSTRIDE，小于2^31。
 
-32为整数间的加减运算可以视为运算对2^32取模，由于lab6_stride最大最小值小于2^16，所以任意两个相减绝对值小于2^16。
-p->lab6_stride-q->lab6_stride取模，若值为0至2^16-1（即使溢出）则说明p的lab6_stride真实值大于q的，若为2^16至2^32-1则说明p的小。
-是否大于等于2^16可以通过将其转化为有符号32位整数进行判断。
+32为整数间的加减运算可以视为运算对2^32取模，由于lab6_stride最大最小值小于2^31，所以任意两个相减绝对值小于2^31。
+p->lab6_stride-q->lab6_stride取模，若值为0至2^31-1（即使溢出）则说明p的lab6_stride真实值大于q的，若为2^31至2^32-1则说明p的小。
+是否大于等于2^31可以通过将其转化为有符号32位整数进行判断。
+
+事实上，由于有无符号整数或无符号整数只是对一个整数的解释方式，在进行加减操作时，无论用哪种类型，对应的32位二进制值都是一样的，所以lab6_stride可以由有符号整数int来表示。
