@@ -1,6 +1,6 @@
 为什么使用32位整数就可以完成stride算法的调度？
 
-以ucore为例，要求kern/schedule/default_sched.c中常量BIGSTRIDE<2^16，在实现stride时初始lab6_stridhttps://piazza.com/class/i5j09fnsl7k5x0?cid=818e为0。
+以ucore为例，要求kern/schedule/default_sched.c中常量BIGSTRIDE<2^16，在实现stride时初始lab6_stride为0。
 由于每次都会寻找最小的lab6_stride对应进程，然后为其lab6_stride加上BIGSTRIDE/lab6_priority，所以lab6_stride的最大最小值差始终小于等于BIGSTRIDE，小于2^16。
 
 32为整数间的加减运算可以视为运算对2^32取模，由于lab6_stride最大最小值小于2^16，所以任意两个相减绝对值小于2^16。
