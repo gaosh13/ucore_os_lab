@@ -1,0 +1,21 @@
+please input N(threads) M(buf_size) MSG(messages), such as 3 5 10:
+sender 1 send message 0, 1 remain in buf
+receiver get message 0, 2 remain in buf
+sender 0 send message 1, 1 remain in buf
+receiver get message 1, 2 remain in buf
+sender 1 send message 2, 1 remain in buf
+sender 0 send message 3, 2 remain in buf
+receiver get message 2, 1 remain in buf
+sender 0 send message 4, 2 remain in buf
+receiver get message 3, 1 remain in buf
+sender 1 send message 5, 2 remain in buf
+receiver get message 4, 1 remain in buf
+sender 0 send message 6, 2 remain in buf
+receiver get message 5, 1 remain in buf
+receiver get message 6, 2 remain in buf
+sender 1 send message 7, 1 remain in buf
+sender 0 send message 8, 2 remain in buf
+receiver get message 7, 1 remain in buf
+sender 0 send message 9, 2 remain in buf
+receiver get message 8, 1 remain in buf
+receiver get message 9, 2 remain in buf
