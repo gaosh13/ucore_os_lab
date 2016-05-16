@@ -290,6 +290,27 @@ class fs:
     # DONE
         return tinum
 
+    def createSoftLink(self, target, newfile, parent):
+
+        pinum = self.nameToInum[parent]
+        pinode = self.inodes[pinum]
+        pdata = self.data[pinode.getAddr()]
+        if pdata.getFreeEntries() == 0:
+            return -1
+        if pdata.dirEntryExists(newfile):
+            return -1
+
+        inum = self.inodeAlloc()
+        dnum = self.dataAlloc()
+        self.inodes[inum].setAll('f', dnum, 1)
+        self.data[dnum].setType('f')
+        self.data[dnum].addData('-> %s' % target)
+
+        pinode.incRefCnt()
+        pdata.addDirEntry(newfile, inum)
+
+        return inum
+
     def createFile(self, parent, newfile, ftype):
     # YOUR CODE, YOUR ID
         # find info about parent
@@ -382,6 +403,33 @@ class fs:
             return 0
         return -1
 
+    def doSoftLink(self):
+        dprint('doSoftLink')
+        if len(self.files) == 0:
+            return -1
+        parent = self.dirs[int(random.random()* len(self.dirs))]
+        nfile = self.makeName()
+
+        # pick random target
+        target = self.files[int(random.random() * len(self.files))]
+
+        # get full name of newfile
+        if parent == '/':
+            fullName = parent + nfile
+        else:
+            fullName = parent + '/' + nfile
+
+        dprint('try createSoftLink(%s %s %s)' % (target, nfile, parent))
+        inum = self.createSoftLink(target, nfile, parent)
+        if inum >= 0:
+            self.files.append(fullName)
+            self.nameToInum[fullName] = inum
+            if printOps:
+                print 'soft link("%s", "%s");' % (target, fullName)
+            return 0
+        return -1
+
+
     def doCreate(self, ftype):
         dprint('doCreate')
         parent = self.dirs[int(random.random() * len(self.dirs))]
@@ -446,8 +494,12 @@ class fs:
                     rc = self.doDelete()
                     dprint('doDelete rc:%d' % rc)
                 elif r < 0.7:
-                    rc = self.doLink()
-                    dprint('doLink rc:%d' % rc)
+                    if softLink and r < 0.6:
+                        rc = self.doSoftLink()
+                        dprint('doSoftLink rc:%d' % rc)
+                    else:
+                        rc = self.doLink()
+                        dprint('doLink rc:%d' % rc)
                 else:
                     if random.random() < 0.75:
                         rc = self.doCreate('f')
@@ -483,6 +535,7 @@ parser.add_option('-d', '--numData',     default=8,     help='number of data blo
 parser.add_option('-n', '--numRequests', default=10,    help='number of requests to simulate',       action='store', type='int', dest='numRequests')
 parser.add_option('-r', '--reverse',     default=False, help='instead of printing state, print ops', action='store_true',        dest='reverse')
 parser.add_option('-p', '--printFinal',  default=False, help='print the final set of files/dirs',    action='store_true',        dest='printFinal')
+parser.add_option('-S', '--soft',        default=False, help='add soft links',                       action='store_true',        dest='soft')
 
 (options, args) = parser.parse_args()
 
@@ -492,6 +545,7 @@ print 'ARG numData',     options.numData
 print 'ARG numRequests', options.numRequests
 print 'ARG reverse',     options.reverse
 print 'ARG printFinal',  options.printFinal
+print 'ARG soft',        options.soft
 print ''
 
 random.seed(options.seed)
@@ -503,6 +557,10 @@ else:
     printState = True
     printOps   = False
 
+if options.soft:
+    softLink = True
+else:
+    softLink = False
 
 printOps   = True
 printState = True
