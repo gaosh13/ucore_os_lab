@@ -18,7 +18,7 @@ STATE_DONE   = 4
 #
 # TODO
 # XXX transfer time
-# XXX satf 
+# XXX satf
 # XXX skew
 # XXX scheduling window
 # XXX sstf
@@ -51,7 +51,7 @@ class Disk:
 
         # figure out zones first, to figure out the max possible request
         self.InitBlockLayout()
-        
+
         # figure out requests
         random.seed(options.seed)
         self.requests     = self.MakeRequests(self.addr, self.addrDesc)
@@ -163,7 +163,7 @@ class Disk:
         # IO QUEUE
         self.queueX       = 20
         self.queueY       = 450
-        
+
         self.requestCount = 0
         self.requestQueue = []
         self.requestState = []
@@ -250,7 +250,7 @@ class Disk:
         print '100 as the maximum value, and 0 as the minumum. A max of -1 means just use the highest'
         print 'possible value as the max address to generate.'
         sys.exit(1)
-    
+
     #
     # ZONES AND BLOCK LAYOUT
     #
@@ -280,7 +280,7 @@ class Disk:
         skew                       = self.skew
         angleOffset                = 2 * self.blockAngleOffset[track]
         for angle in range(0, 360, angleOffset):
-            block = (angle / angleOffset) + pblock 
+            block = (angle / angleOffset) + pblock
             self.blockToTrackMap[block] = track
             self.blockToAngleMap[block] = angle + (angleOffset * skew)
             self.blockInfoList.append((track, angle + (angleOffset * skew), block))
@@ -299,7 +299,7 @@ class Disk:
         self.maxBlock              = pblock
         # print 'MAX BLOCK:', self.maxBlock
 
-        # adjust angle to starting position relative 
+        # adjust angle to starting position relative
         for i in self.blockToAngleMap:
             self.blockToAngleMap[i] = (self.blockToAngleMap[i] + 180) % 360
 
@@ -317,7 +317,7 @@ class Disk:
             (numRequests, maxRequest, minRequest) = (int(desc[0]), int(desc[1]), int(desc[2]))
             if maxRequest == -1:
                 maxRequest = self.maxBlock
-            # now make list 
+            # now make list
             tmpList = []
             for i in range(numRequests):
                 tmpList.append(int(random.random() * maxRequest) + minRequest)
@@ -379,7 +379,7 @@ class Disk:
             (cx, cy)   = (self.queueX + (col * self.queueBoxSize), self.queueY + (row * self.queueBoxSize))
             self.queueBoxID[index] = self.canvas.create_rectangle(cx - sizeHalf, cy - sizeHalf, cx + sizeHalf, cy + sizeHalf, fill='white')
             self.queueTxtID[index] = self.canvas.create_text(cx, cy, anchor='center', text=str(block))
-    
+
     def SwitchColors(self, c):
         if self.graphics:
             self.canvas.itemconfig(self.queueBoxID[self.currentIndex], fill=c)
@@ -421,7 +421,7 @@ class Disk:
             # print ' --> DONE WITH ROTATION!', self.timer
             return True
         return False
-        
+
     def PlanSeek(self, track):
         self.seekBegin = self.timer
         self.SwitchColors('orange')
@@ -475,7 +475,7 @@ class Disk:
             angleOffset    = self.blockAngleOffset[track]
             angleAtArrival = (Decimal(self.angle) + (seekEst * self.rotateSpeed))
             while angleAtArrival > 360.0:
-                angleAtArrival -= 360.0
+                angleAtArrival -= Decimal(360.0)
             rotDist        = Decimal((angle - angleOffset) - angleAtArrival)
             while rotDist > 360.0:
                 rotDist -= Decimal(360.0)
@@ -501,14 +501,13 @@ class Disk:
         assert(minIndex != -1)
         return (minBlock, minIndex)
 
-    # 
+    #
     # actually doesn't quite do SSTF
     # just finds all the blocks on the nearest track
     # (whatever that may be) and returns it as a list
-    # 
+    #
     def DoSSTF(self, rList):
         minDist   = MAXTRACKS
-        minBlock  = -1
         trackList = []  # all the blocks on a track
 
         for (block, index) in rList:
@@ -525,12 +524,35 @@ class Disk:
         assert(trackList != [])
         return trackList
 
+    def DoCLOOK(self, rList):
+        minDist   = MAXTRACKS
+        maxDist   = -MAXTRACKS
+        trackList = []  # all the blocks on a track
+
+        for (block, index) in rList:
+            if self.requestState[index] == STATE_DONE:
+                continue
+            track = self.blockToTrackMap[block]
+            dist  = track - self.armTrack
+            distm = MAXTRACKS - track
+            if dist >= 0 and dist < minDist:
+                trackList = []
+                trackList.append((block, index))
+                minDist = dist
+            elif dist == minDist:
+                trackList.append((block, index))
+            elif distm > maxDist and len(trackList) == 0:
+                trackList.append((block, index))
+                maxDist = distm
+        assert(trackList != [])
+        return trackList
+
     def UpdateWindow(self):
         if self.fairWindow == -1 and self.currWindow > 0 and self.currWindow < len(self.requestQueue):
             self.currWindow += 1
             if self.graphics:
                 self.DrawWindow()
-        
+
     def GetWindow(self):
         if self.currWindow <= -1:
             return len(self.requestQueue)
@@ -555,7 +577,7 @@ class Disk:
             self.isDone = True
             return
 
-        # do policy: should set currentBlock, 
+        # do policy: should set currentBlock,
         if self.policy == 'FIFO':
             (self.currentBlock, self.currentIndex) = self.requestQueue[self.requestCount]
             self.DoSATF(self.requestQueue[self.requestCount:self.requestCount+1])
@@ -565,6 +587,9 @@ class Disk:
             # first, find all the blocks on a given track (given window constraints)
             trackList = self.DoSSTF(self.requestQueue[0:self.GetWindow()])
             # then, do SATF on those blocks (otherwise, will not do them in obvious order)
+            (self.currentBlock, self.currentIndex) = self.DoSATF(trackList)
+        elif self.policy == 'CLOOK':
+            trackList = self.DoCLOOK(self.requestQueue[0:self.GetWindow()])
             (self.currentBlock, self.currentIndex) = self.DoSATF(trackList)
         else:
             print 'policy (%s) not implemented' % self.policy
@@ -633,9 +658,9 @@ class Disk:
                         (self.rotBegin, self.seekBegin, self.xferBegin) = (self.timer, self.timer, self.timer)
                         self.SwitchState(STATE_XFER)
                         self.SwitchColors('green')
-                        
-                        
-        
+
+
+
         # make sure to keep the animation going!
         if self.graphics:
             self.root.after(20, self.Animate)
@@ -658,16 +683,16 @@ class Disk:
         self.rotTotal  += rotTime
         self.xferTotal += xferTime
 
-        
+
 
     def PrintStats(self):
         if self.compute == True:
             print '\nTOTALS      Seek:%3d  Rotate:%3d  Transfer:%3d  Total:%4d\n' % (self.seekTotal, self.rotTotal, self.xferTotal, self.timer)
-        
+
 # END: class Disk
 
 
-    
+
 #
 # MAIN SIMULATOR
 #
@@ -677,7 +702,7 @@ parser.add_option('-a', '--addr',            default='-1',        help='Request 
 parser.add_option('-A', '--addrDesc',        default='5,-1,0',    help='Num requests, max request (-1->all), min request',        action='store', type='string', dest='addrDesc')
 parser.add_option('-S', '--seekSpeed',       default='1',         help='Speed of seek',                                           action='store', type='string', dest='seekSpeed')
 parser.add_option('-R', '--rotSpeed',        default='1',         help='Speed of rotation',                                       action='store', type='string', dest='rotateSpeed')
-parser.add_option('-p', '--policy',          default='FIFO',      help='Scheduling policy (FIFO, SSTF, SATF, BSATF)',             action='store', type='string', dest='policy')
+parser.add_option('-p', '--policy',          default='FIFO',      help='Scheduling policy (FIFO, CLOOK, SSTF, SATF, BSATF)',      action='store', type='string', dest='policy')
 parser.add_option('-w', '--schedWindow',     default=-1,          help='Size of scheduling window (-1 -> all)',                   action='store', type='int',    dest='window')
 parser.add_option('-o', '--skewOffset',      default=0,           help='Amount of skew (in blocks)',                              action='store', type='int',    dest='skew')
 parser.add_option('-z', '--zoning',          default='30,30,30',  help='Angles between blocks on outer,middle,inner tracks',      action='store', type='string', dest='zoning')
