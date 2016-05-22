@@ -9,7 +9,7 @@
    usually split, and the remainder added to the list as another free block.
    Please see Page 196~198, Section 8.2 of Yan Wei Min's chinese book "Data Structure -- C programming language"
 */
-// LAB2 EXERCISE 1: YOUR CODE
+// LAB2 EXERCISE 1: 2013011400
 // you should rewrite functions: default_init,default_init_memmap,default_alloc_pages, default_free_pages.
 /*
  * Details of FFMA
@@ -72,12 +72,14 @@ default_init_memmap(struct Page *base, size_t n) {
     for (; p != base + n; p ++) {
         assert(PageReserved(p));
         p->flags = p->property = 0;
+        SetPageProperty(p);
         set_page_ref(p, 0);
+        list_add_before(&free_list, (&p->page_link));
     }
     base->property = n;
-    SetPageProperty(base);
+    // SetPageProperty(base);
     nr_free += n;
-    list_add(&free_list, &(base->page_link));
+    // list_add(&free_list, &(base->page_link));
 }
 
 static struct Page *
@@ -86,57 +88,73 @@ default_alloc_pages(size_t n) {
     if (n > nr_free) {
         return NULL;
     }
-    struct Page *page = NULL;
-    list_entry_t *le = &free_list;
+    list_entry_t *le = &free_list, *le2;
     while ((le = list_next(le)) != &free_list) {
         struct Page *p = le2page(le, page_link);
-        if (p->property >= n) {
-            page = p;
-            break;
+        size_t prop = p->property;
+        if (prop >= n) {
+            SetPageReserved(p);
+            ClearPageProperty(p);
+            nr_free -= n;
+
+            int i;
+            for (i = 0; i < n; ++i)
+            {
+                le2 = list_next(le);
+                struct Page *p2 = le2page(le2, page_link);
+                if (i != n-1)
+                {
+                    SetPageReserved(p2);
+                    ClearPageProperty(p2);
+                }
+                list_del(le);
+                le = le2;
+            }
+            if (prop > n)
+                le2page(le, page_link)->property = prop - n;
+            return p;
         }
     }
-    if (page != NULL) {
-        list_del(&(page->page_link));
-        if (page->property > n) {
-            struct Page *p = page + n;
-            p->property = page->property - n;
-            list_add(&free_list, &(p->page_link));
-    }
-        nr_free -= n;
-        ClearPageProperty(page);
-    }
-    return page;
+    return NULL;
 }
 
 static void
 default_free_pages(struct Page *base, size_t n) {
     assert(n > 0);
-    struct Page *p = base;
-    for (; p != base + n; p ++) {
-        assert(!PageReserved(p) && !PageProperty(p));
-        p->flags = 0;
-        set_page_ref(p, 0);
+    assert(PageReserved(base));
+
+    list_entry_t *le = &free_list;
+    for (;(le=list_next(le)) != &free_list && le2page(le, page_link) < base;);
+
+    struct Page *p;
+    for (p = base; p != base+n; ++p)
+    {
+        list_add_before(le, &(p->page_link));
     }
-    base->property = n;
+    base->flags = 0;
+    set_page_ref(base, 0);
+    ClearPageProperty(base);
     SetPageProperty(base);
-    list_entry_t *le = list_next(&free_list);
-    while (le != &free_list) {
-        p = le2page(le, page_link);
-        le = list_next(le);
-        if (base + base->property == p) {
-            base->property += p->property;
-            ClearPageProperty(p);
-            list_del(&(p->page_link));
-        }
-        else if (p + p->property == base) {
-            p->property += base->property;
-            ClearPageProperty(base);
-            base = p;
-            list_del(&(p->page_link));
+    base->property = n;
+
+    p = le2page(le, page_link);
+    if (base+n == p)
+    {
+        base->property += p->property;
+        p->property = 0;
+    }
+    le = list_prev(&(base->page_link));
+    if (le != &free_list && le2page(le, page_link) == base-1)
+    {
+        for (;le != &free_list && le2page(le, page_link)->property == 0;le = list_prev(le));
+        if (le != &free_list)
+        {
+            le2page(le, page_link)->property += base->property;
+            base->property = 0;
         }
     }
+
     nr_free += n;
-    list_add(&free_list, &(base->page_link));
 }
 
 static size_t
