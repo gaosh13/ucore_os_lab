@@ -122,7 +122,8 @@ alloc_proc(void) {
      *     uint32_t lab6_stride;                       // FOR LAB6 ONLY: the current stride of the process
      *     uint32_t lab6_priority;                     // FOR LAB6 ONLY: the priority of process, set by lab6_set_priority(uint32_t)
      */
-	    proc->state = PROC_UNINIT;
+     //LAB8 2013011400 HINT: add filesp
+        proc->state = PROC_UNINIT;
         proc->pid = -1;
         proc->runs = 0;
         proc->kstack = 0;
